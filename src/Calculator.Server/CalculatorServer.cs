@@ -12,11 +12,15 @@ public sealed class CalculatorServer
         _port = port;
     }
 
-    public void Start()
+    public async Task RunAsync(CancellationToken ct)
     {
         var listener = new TcpListener(IPAddress.Any, _port);
         listener.Start();
 
-        Console.WriteLine($"Servidor TCP escuchando en el puerto {_port}");
+        while (!ct.IsCancellationRequested)
+        {
+            TcpClient client = await listener.AcceptTcpClientAsync(ct);
+            // conexión aceptada (aún no se maneja)
+        }
     }
 }
