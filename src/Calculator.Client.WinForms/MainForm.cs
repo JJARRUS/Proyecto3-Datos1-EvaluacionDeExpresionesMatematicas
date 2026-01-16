@@ -150,12 +150,11 @@ public partial class MainForm : Form
         };
     }
 
-    // 3. Evento conectado al botón Calcular
+    // Evento conectado al botón Calcular - Task 30: Enviar expresión al servidor
     private async Task ButtonCalculate_ClickAsync()
     {
         string expression = textBoxExpression.Text.Trim();
 
-        // 4. Validar que la expresión no esté vacía
         if (string.IsNullOrEmpty(expression))
         {
             ShowError("Por favor ingrese una expresión válida");
@@ -164,17 +163,18 @@ public partial class MainForm : Form
             return;
         }
 
-        // Limpiar mensaje de error
         ClearError();
 
-        // Enviar al servidor y mostrar respuesta (US10)
+        // Task 30: Enviar expresión RPN al servidor a través del cliente TCP
         try
         {
             textBoxResult.Text = "Procesando...";
             textBoxResult.ForeColor = System.Drawing.Color.Orange;
 
+            // Invocar al servidor usando el cliente TCP
             var response = await _client.EvaluateRawAsync(expression);
 
+            // Procesar respuesta del servidor
             if (response.StartsWith("OK ", StringComparison.OrdinalIgnoreCase))
             {
                 var payload = response.Substring(3).Trim();

@@ -7,9 +7,11 @@ using System.Threading.Tasks;
 
 namespace Calculator.Client.WinForms;
 
-
+/// <summary>
 /// Cliente TCP para conectarse al servidor de calculadora.
 /// Task 28: Implementar el cliente TCP capaz de iniciar una conexión con el servidor.
+/// Task 30: Implementar el envío de expresiones matemáticas desde el cliente al servidor.
+/// </summary>
 public sealed class TcpApiClient
 {
 	private readonly string _host;
@@ -21,11 +23,12 @@ public sealed class TcpApiClient
 		_port = port;
 	}
 
-
-	/// Evalúa una expresión en notación postfija (RPN) en el servidor.
-
-	/// "rpn" Expresión en notación postfija
-	/// Resultado de la evaluación
+	/// <summary>
+	/// Task 30: Envía una expresión matemática en notación postfija (RPN) al servidor y recibe el resultado.
+	/// Protocolo: Envía "EVAL <expresión>" y espera respuesta "OK <resultado>" o "ERR <mensaje>".
+	/// </summary>
+	/// <param name="rpn">Expresión en notación postfija, ej: "3 4 +"</param>
+	/// <returns>Resultado numérico de la evaluación</returns>
 	public async Task<int> EvalAsync(string rpn)
 	{
 		using var client = new TcpClient();
@@ -35,15 +38,20 @@ public sealed class TcpApiClient
 		using var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true };
 		using var reader = new StreamReader(stream, Encoding.UTF8);
 
+		// Enviar comando EVAL con la expresión RPN al servidor
 		await writer.WriteLineAsync($"EVAL {rpn}");
+		
+		// Leer respuesta del servidor
 		var response = await reader.ReadLineAsync();
 
 		if (response == null)
 			throw new Exception("Servidor no respondió.");
 
+		// Parsear respuesta exitosa: "OK <resultado>"
 		if (response.StartsWith("OK ", StringComparison.OrdinalIgnoreCase))
 			return int.Parse(response.Substring(3).Trim());
 
+		// Parsear respuesta de error: "ERR <mensaje>"
 		if (response.StartsWith("ERR ", StringComparison.OrdinalIgnoreCase))
 			throw new Exception(response.Substring(4).Trim());
 
