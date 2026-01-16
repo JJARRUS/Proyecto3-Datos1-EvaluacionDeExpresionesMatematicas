@@ -2,11 +2,12 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net6.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Calculator.Common\Calculator.Common.csproj" />
     <ProjectReference Include="..\Calculator.ArbolExprecion\ExpressionTree.csproj" />
   </ItemGroup>
 
