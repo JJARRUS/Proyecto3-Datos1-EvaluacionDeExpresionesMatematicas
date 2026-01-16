@@ -1,56 +1,101 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 
-// US10 – Cliente TCP para integrar GUI con servidor
-public class TcpApiClient : IDisposable
+namespace Calculator.Client.WinForms;
+
+
+/// Cliente TCP para conectarse al servidor de calculadora.
+/// Task 28: Implementar el cliente TCP capaz de iniciar una conexión con el servidor.
+public sealed class TcpApiClient
 {
-	private readonly string _serverIp;
-	private readonly int _serverPort;
-	private TcpClient? _client;
-	private StreamReader? _reader;
-	private StreamWriter? _writer;
+	private readonly string _host;
+	private readonly int _port;
 
-	public TcpApiClient(string serverIp, int serverPort)
+	public TcpApiClient(string host, int port)
 	{
-		_serverIp = serverIp;
-		_serverPort = serverPort;
+		_host = host;
+		_port = port;
 	}
 
-	private async Task ConnectAsync()
-	{
-		if (_client?.Connected == true) return;
 
-		_client = new TcpClient();
-		await _client.ConnectAsync(_serverIp, _serverPort);
-		var stream = _client.GetStream();
-		_reader = new StreamReader(stream, Encoding.UTF8);
-		_writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true };
+	/// Evalúa una expresión en notación postfija (RPN) en el servidor.
+
+	/// "rpn" Expresión en notación postfija
+	/// Resultado de la evaluación
+	public async Task<int> EvalAsync(string rpn)
+	{
+		using var client = new TcpClient();
+		await client.ConnectAsync(_host, _port);
+		
+		using var stream = client.GetStream();
+		using var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true };
+		using var reader = new StreamReader(stream, Encoding.UTF8);
+
+		await writer.WriteLineAsync($"EVAL {rpn}");
+		var response = await reader.ReadLineAsync();
+
+		if (response == null)
+			throw new Exception("Servidor no respondió.");
+
+		if (response.StartsWith("OK ", StringComparison.OrdinalIgnoreCase))
+			return int.Parse(response.Substring(3).Trim());
+
+		if (response.StartsWith("ERR ", StringComparison.OrdinalIgnoreCase))
+			throw new Exception(response.Substring(4).Trim());
+
+		throw new Exception("Respuesta inválida del servidor.");
 	}
 
-	// Enviar expresión y obtener resultado
+	/// <summary>
+	/// Obtiene el historial de operaciones del servidor en formato CSV.
+	/// </summary>
+	/// <returns>Lista de líneas CSV del historial</returns>
+	public async Task<List<string>> HistAsync()
+	{
+		using var client = new TcpClient();
+		await client.ConnectAsync(_host, _port);
+		
+		using var stream = client.GetStream();
+		using var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true };
+		using var reader = new StreamReader(stream, Encoding.UTF8);
+
+		await writer.WriteLineAsync("HIST");
+
+		var lines = new List<string>();
+		while (true)
+		{
+			var line = await reader.ReadLineAsync();
+			if (line == null) break;
+			if (line == "END") break;
+			lines.Add(line);
+		}
+
+		return lines;
+	}
+
+	/// <summary>
+	/// Versión raw que devuelve la respuesta completa del servidor (para compatibilidad).
+	/// </summary>
 	public async Task<string> EvaluateRawAsync(string expression)
 	{
-		if (string.IsNullOrWhiteSpace(expression))
-			throw new ArgumentException("La expresión no puede estar vacía");
+		using var client = new TcpClient();
+		await client.ConnectAsync(_host, _port);
+		
+		using var stream = client.GetStream();
+		using var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true };
+		using var reader = new StreamReader(stream, Encoding.UTF8);
 
-		await ConnectAsync();
-		await _writer!.WriteLineAsync($"EVAL {expression}");
+		await writer.WriteLineAsync($"EVAL {expression}");
+		var response = await reader.ReadLineAsync();
 
-		var response = await _reader!.ReadLineAsync();
 		if (response == null)
 			throw new InvalidOperationException("El servidor no respondió");
 
 		return response;
-	}
-
-	public void Dispose()
-	{
-		_reader?.Dispose();
-		_writer?.Dispose();
-		_client?.Dispose();
 	}
 }
 
