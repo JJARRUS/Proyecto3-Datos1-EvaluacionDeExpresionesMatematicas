@@ -1,20 +1,30 @@
 using System;
 using System.Windows.Forms;
 using System.Threading.Tasks;
+ 
+namespace Calculator.Client.WinForms;
 
 public partial class MainForm : Form
 {
     private TcpApiClient _client;
+    
+    // Task 29: Configuración del cliente para conectarse al servidor
+    // Dirección IP del servidor de calculadora
     private const string SERVER_IP = "127.0.0.1";
-    private const int SERVER_PORT = 8080;
+    // Puerto TCP del servidor de calculadora
+    private const int SERVER_PORT = 5000;
+    
     private TextBox textBoxExpression;
     private TextBox textBoxResult;
     private Label labelError;
+    private Label labelConnectionInfo;
 
     public MainForm()
     {
         InitializeComponent();
+        // Task 29: Inicializar cliente con dirección y puerto configurados
         _client = new TcpApiClient(SERVER_IP, SERVER_PORT);
+        UpdateConnectionStatus();
     }
 
     private void InitializeComponent()
@@ -110,6 +120,18 @@ public partial class MainForm : Form
         panelResult.Controls.Add(labelResult);
         panelResult.Controls.Add(textBoxResult);
 
+        // Task 29: Mostrar información de conexión al servidor
+        labelConnectionInfo = new Label
+        {
+            Text = $"Conectado a: {SERVER_IP}:{SERVER_PORT}",
+            Location = new System.Drawing.Point(15, 80),
+            Size = new System.Drawing.Size(630, 20),
+            AutoSize = false,
+            ForeColor = System.Drawing.Color.Blue,
+            Font = new System.Drawing.Font("Arial", 9, System.Drawing.FontStyle.Italic)
+        };
+        panelResult.Controls.Add(labelConnectionInfo);
+
         // ==================== AGREGAR PANELES AL FORMULARIO ====================
         this.Controls.Add(panelResult);
         this.Controls.Add(panelInput);
@@ -198,6 +220,16 @@ public partial class MainForm : Form
     {
         labelError.Text = "";
         labelError.Visible = false;
+    }
+
+    // Task 29: Actualizar el estado de la conexión
+    private void UpdateConnectionStatus()
+    {
+        if (labelConnectionInfo != null)
+        {
+            labelConnectionInfo.Text = $"Servidor configurado: {SERVER_IP}:{SERVER_PORT}";
+            labelConnectionInfo.ForeColor = System.Drawing.Color.Blue;
+        }
     }
 }
 

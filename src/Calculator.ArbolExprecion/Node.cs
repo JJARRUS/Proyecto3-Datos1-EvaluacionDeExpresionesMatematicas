@@ -1,3 +1,5 @@
+namespace Calculator.ArbolExprecion;
+
 public enum NodeType
 {
     Operator,
