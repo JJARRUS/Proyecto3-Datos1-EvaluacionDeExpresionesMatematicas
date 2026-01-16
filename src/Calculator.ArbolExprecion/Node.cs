@@ -15,4 +15,7 @@ public abstract class Node
     {
         Type = type;
     }
+
+    // Método abstracto para evaluación recursiva
+    public abstract double Evaluate();
 }
