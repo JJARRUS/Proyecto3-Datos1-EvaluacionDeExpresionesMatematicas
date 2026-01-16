@@ -1,43 +1,54 @@
+using System;
+using System.Collections.Generic;
+
 public class ExpressionTree
 {
     public Node? Root { get; private set; }
 
-    public ExpressionTree()
+    public void BuildFromPostfix(List<string> postfix)
     {
-        Root = null;
+        var stack = new Stack<Node>();
+
+        foreach (var token in postfix)
+        {
+            // Operando → nodo hoja
+            if (double.TryParse(token, out double value))
+            {
+                stack.Push(new OperandNode(value));
+            }
+            // Operador → nodo interno
+            else if (IsOperator(token))
+            {
+                if (stack.Count < 2)
+                    throw new ArgumentException("Expresión postfija inválida");
+
+                Node right = stack.Pop();
+                Node left = stack.Pop();
+
+                var operatorNode = new OperatorNode(token[0])
+                {
+                    Left = left,
+                    Right = right
+                };
+
+                stack.Push(operatorNode);
+            }
+            else
+            {
+                throw new ArgumentException("Token inválido en la expresión postfija");
+            }
+        }
+
+        if (stack.Count != 1)
+            throw new ArgumentException("Expresión postfija inválida");
+
+        Root = stack.Pop();
     }
 
-    public ExpressionTree(Node root)
+    private bool IsOperator(string token)
     {
-        Root = root;
-    }
-
-    public void SetRoot(Node root)
-    {
-        Root = root;
-    }
-
-    public bool IsEmpty()
-    {
-        return Root == null;
-    }
-
-    // Acceso al nodo raíz
-    public Node? GetRoot()
-    {
-        return Root;
-    }
-
-    // Asignar hijos a un nodo existente
-    public void SetChildren(Node parent, Node? left, Node? right)
-    {
-        parent.Left = left;
-        parent.Right = right;
-    }
-
-    // Verificar si un nodo es hoja
-    public bool IsLeaf(Node node)
-    {
-        return node.Left == null && node.Right == null;
+        return token.Length == 1 &&
+               (token[0] == '+' || token[0] == '-' ||
+                token[0] == '*' || token[0] == '/');
     }
 }
