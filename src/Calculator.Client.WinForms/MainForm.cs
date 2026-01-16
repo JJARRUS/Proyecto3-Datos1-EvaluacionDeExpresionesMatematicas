@@ -1,8 +1,12 @@
 using System;
 using System.Windows.Forms;
+using System.Threading.Tasks;
 
 public partial class MainForm : Form
 {
+    private TcpApiClient _client;
+    private const string SERVER_IP = "127.0.0.1";
+    private const int SERVER_PORT = 8080;
     private TextBox textBoxExpression;
     private TextBox textBoxResult;
     private Label labelError;
@@ -10,6 +14,7 @@ public partial class MainForm : Form
     public MainForm()
     {
         InitializeComponent();
+        _client = new TcpApiClient(SERVER_IP, SERVER_PORT);
     }
 
     private void InitializeComponent()
@@ -110,7 +115,7 @@ public partial class MainForm : Form
         this.Controls.Add(panelInput);
 
         // ==================== 3. CONECTAR EVENTOS ====================
-        buttonCalculate.Click += (sender, e) => ButtonCalculate_Click();
+        buttonCalculate.Click += async (sender, e) => await ButtonCalculate_ClickAsync();
 
         // Permitir presionar Enter en el textbox
         textBoxExpression.KeyPress += (sender, e) =>
@@ -124,7 +129,7 @@ public partial class MainForm : Form
     }
 
     // 3. Evento conectado al botón Calcular
-    private void ButtonCalculate_Click()
+    private async Task ButtonCalculate_ClickAsync()
     {
         string expression = textBoxExpression.Text.Trim();
 
@@ -139,13 +144,46 @@ public partial class MainForm : Form
 
         // Limpiar mensaje de error
         ClearError();
-        
-        // Mostrar confirmación de que el botón funciona
-        textBoxResult.Text = $"Expresión recibida: {expression}";
-        textBoxResult.ForeColor = System.Drawing.Color.Green;
-        
-        textBoxExpression.Clear();
-        textBoxExpression.Focus();
+
+        // Enviar al servidor y mostrar respuesta (US10)
+        try
+        {
+            textBoxResult.Text = "Procesando...";
+            textBoxResult.ForeColor = System.Drawing.Color.Orange;
+
+            var response = await _client.EvaluateRawAsync(expression);
+
+            if (response.StartsWith("OK ", StringComparison.OrdinalIgnoreCase))
+            {
+                var payload = response.Substring(3).Trim();
+                textBoxResult.Text = $"Resultado: {payload}";
+                textBoxResult.ForeColor = System.Drawing.Color.Green;
+            }
+            else if (response.StartsWith("ERR ", StringComparison.OrdinalIgnoreCase))
+            {
+                var error = response.Substring(4).Trim();
+                ShowError($"Error: {error}");
+                textBoxResult.Text = "Error";
+                textBoxResult.ForeColor = System.Drawing.Color.Red;
+            }
+            else
+            {
+                ShowError("Respuesta inesperada del servidor");
+                textBoxResult.Text = response;
+                textBoxResult.ForeColor = System.Drawing.Color.Red;
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error de conexión: {ex.Message}");
+            textBoxResult.Text = "Error";
+            textBoxResult.ForeColor = System.Drawing.Color.Red;
+        }
+        finally
+        {
+            textBoxExpression.Clear();
+            textBoxExpression.Focus();
+        }
     }
 
     // 4. Mostrar mensaje de error
