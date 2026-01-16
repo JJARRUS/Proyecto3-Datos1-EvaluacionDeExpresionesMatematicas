@@ -150,7 +150,7 @@ public partial class MainForm : Form
         };
     }
 
-    // Evento conectado al botón Calcular - Task 30: Enviar expresión al servidor
+    // Task 30/31: Evento conectado al botón Calcular - Envía expresión y recibe respuesta
     private async Task ButtonCalculate_ClickAsync()
     {
         string expression = textBoxExpression.Text.Trim();
@@ -165,24 +165,25 @@ public partial class MainForm : Form
 
         ClearError();
 
-        // Task 30: Enviar expresión RPN al servidor a través del cliente TCP
         try
         {
             textBoxResult.Text = "Procesando...";
             textBoxResult.ForeColor = System.Drawing.Color.Orange;
 
-            // Invocar al servidor usando el cliente TCP
+            // Enviar expresión RPN al servidor
             var response = await _client.EvaluateRawAsync(expression);
 
-            // Procesar respuesta del servidor
+            // Task 31: Recibir y procesar la respuesta del servidor
             if (response.StartsWith("OK ", StringComparison.OrdinalIgnoreCase))
             {
+                // Respuesta exitosa: extraer resultado de "OK <valor>"
                 var payload = response.Substring(3).Trim();
                 textBoxResult.Text = $"Resultado: {payload}";
                 textBoxResult.ForeColor = System.Drawing.Color.Green;
             }
             else if (response.StartsWith("ERR ", StringComparison.OrdinalIgnoreCase))
             {
+                // Respuesta de error: extraer mensaje de "ERR <mensaje>"
                 var error = response.Substring(4).Trim();
                 ShowError($"Error: {error}");
                 textBoxResult.Text = "Error";
@@ -190,6 +191,7 @@ public partial class MainForm : Form
             }
             else
             {
+                // Respuesta inesperada o inválida
                 ShowError("Respuesta inesperada del servidor");
                 textBoxResult.Text = response;
                 textBoxResult.ForeColor = System.Drawing.Color.Red;
@@ -197,6 +199,7 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
+            // Task 31: Manejar errores de conexión o recepción
             ShowError($"Error de conexión: {ex.Message}");
             textBoxResult.Text = "Error";
             textBoxResult.ForeColor = System.Drawing.Color.Red;
