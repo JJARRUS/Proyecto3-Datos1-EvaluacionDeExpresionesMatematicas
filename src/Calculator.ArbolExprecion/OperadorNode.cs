@@ -1,4 +1,8 @@
+#nullable enable
+
 using System;
+
+namespace Calculator.ArbolExprecion;
 
 public class OperatorNode : Node
 {

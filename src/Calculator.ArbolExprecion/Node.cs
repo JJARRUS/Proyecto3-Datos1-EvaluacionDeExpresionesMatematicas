@@ -1,3 +1,7 @@
+#nullable enable
+
+namespace Calculator.ArbolExprecion;
+
 public enum NodeType
 {
     Operator,

@@ -2,11 +2,18 @@ using System;
 using System.Windows.Forms;
 using System.Threading.Tasks;
 
+namespace Calculator.Client.WinForms;
+
 public partial class MainForm : Form
 {
     private TcpApiClient _client;
+    
+    // Task 29: Configuración del cliente para conectarse al servidor
+    // Dirección IP del servidor de calculadora
     private const string SERVER_IP = "127.0.0.1";
+    // Puerto TCP del servidor de calculadora
     private const int SERVER_PORT = 8080;
+    
     private TextBox textBoxExpression;
     private TextBox textBoxResult;
     private Label labelError;
@@ -16,7 +23,9 @@ public partial class MainForm : Form
     public MainForm()
     {
         InitializeComponent();
+        // Task 29: Inicializar cliente con dirección y puerto configurados
         _client = new TcpApiClient(SERVER_IP, SERVER_PORT);
+        UpdateConnectionStatus();
     }
 
     private void InitializeComponent()
@@ -222,12 +231,11 @@ public partial class MainForm : Form
         };
     }
 
-    // 3. Evento conectado al botón Calcular
+    // Task 30/31: Evento conectado al botón Calcular - Envía expresión y recibe respuesta
     private async Task ButtonCalculate_ClickAsync()
     {
         string expression = textBoxExpression.Text.Trim();
 
-        // 4. Validar que la expresión no esté vacía
         if (string.IsNullOrEmpty(expression))
         {
             ShowError("Por favor ingrese una expresión válida");
@@ -236,10 +244,8 @@ public partial class MainForm : Form
             return;
         }
 
-        // Limpiar mensaje de error
         ClearError();
 
-        // Enviar al servidor y mostrar respuesta (US10)
         try
         {
             textBoxResult.Text = "Procesando...";
@@ -247,10 +253,13 @@ public partial class MainForm : Form
             labelStatus.Text = "Enviando al servidor...";
             labelStatus.ForeColor = System.Drawing.Color.DarkGoldenrod;
 
+            // Enviar expresión RPN al servidor
             var response = await _client.EvaluateRawAsync(expression);
 
+            // Task 31: Recibir y procesar la respuesta del servidor
             if (response.StartsWith("OK ", StringComparison.OrdinalIgnoreCase))
             {
+                // Respuesta exitosa: extraer resultado de "OK <valor>"
                 var payload = response.Substring(3).Trim();
                 textBoxResult.Text = $"Resultado: {payload}";
                 textBoxResult.ForeColor = System.Drawing.Color.FromArgb(34, 139, 34);
@@ -261,6 +270,7 @@ public partial class MainForm : Form
             }
             else if (response.StartsWith("ERR ", StringComparison.OrdinalIgnoreCase))
             {
+                // Respuesta de error: extraer mensaje de "ERR <mensaje>"
                 var error = response.Substring(4).Trim();
                 ShowError($"Error: {error}");
                 textBoxResult.Text = "Error";
@@ -270,6 +280,7 @@ public partial class MainForm : Form
             }
             else
             {
+                // Respuesta inesperada o inválida
                 ShowError("Respuesta inesperada del servidor");
                 textBoxResult.Text = response;
                 textBoxResult.ForeColor = System.Drawing.Color.Red;
@@ -279,6 +290,7 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
+            // Task 31: Manejar errores de conexión o recepción
             ShowError($"Error de conexión: {ex.Message}");
             textBoxResult.Text = "Error";
             textBoxResult.ForeColor = System.Drawing.Color.Red;
@@ -304,6 +316,16 @@ public partial class MainForm : Form
     {
         labelError.Text = "";
         labelError.Visible = false;
+    }
+
+    // Task 29: Actualizar el estado de la conexión
+    private void UpdateConnectionStatus()
+    {
+        if (labelStatus != null)
+        {
+            labelStatus.Text = $"Servidor: {SERVER_IP}:{SERVER_PORT} (listo)";
+            labelStatus.ForeColor = System.Drawing.Color.FromArgb(34, 85, 34);
+        }
     }
 }
 

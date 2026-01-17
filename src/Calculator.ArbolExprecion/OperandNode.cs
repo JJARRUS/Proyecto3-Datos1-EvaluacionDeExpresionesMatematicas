@@ -1,3 +1,7 @@
+#nullable enable
+
+namespace Calculator.ArbolExprecion;
+
 public class OperandNode : Node
 {
     public double Value { get; }
