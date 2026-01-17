@@ -1,5 +1,9 @@
+#nullable enable
+
 using System;
 using System.Collections.Generic;
+
+namespace Calculator.ArbolExprecion;
 
 public class ExpressionTree
 {
