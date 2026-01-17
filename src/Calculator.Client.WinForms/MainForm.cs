@@ -12,7 +12,7 @@ public partial class MainForm : Form
     // Dirección IP del servidor de calculadora
     private const string SERVER_IP = "127.0.0.1";
     // Puerto TCP del servidor de calculadora
-    private const int SERVER_PORT = 8080;
+    private const int SERVER_PORT = 5000;
     
     private TextBox textBoxExpression;
     private TextBox textBoxResult;
