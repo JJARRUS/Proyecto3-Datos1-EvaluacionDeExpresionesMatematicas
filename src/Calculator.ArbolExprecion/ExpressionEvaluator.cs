@@ -1,5 +1,7 @@
 using System;
 
+namespace Calculator.ArbolExprecion;
+
 public class ExpressionEvaluator
 {
     private readonly ExpressionTree _tree;
