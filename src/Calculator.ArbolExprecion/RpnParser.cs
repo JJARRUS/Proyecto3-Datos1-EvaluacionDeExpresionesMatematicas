@@ -1,126 +1,174 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 public class RpnParser
 {
-    private static readonly Dictionary<char, int> Precedence = new()
+    // Precedencia y asociatividad
+    private static readonly Dictionary<string, int> Precedence = new()
     {
-        { '+', 1 },
-        { '-', 1 },
-        { '*', 2 },
-        { '/', 2 }
+        { "~", 5 },              // not (unario)
+        { "**", 4 },             // potencia
+        { "*", 3 }, { "/", 3 }, { "%", 3 },
+        { "+", 2 }, { "-", 2 },
+        { "&", 1 },              // and
+        { "^", 1 },              // xor
+        { "|", 0 }               // or
     };
+
+    private static readonly HashSet<string> RightAssociative = new() { "**", "~" };
+    private static readonly HashSet<string> UnaryOperators = new() { "~" };
 
     public List<string> ConvertToPostfix(string expression)
     {
         var output = new List<string>();
-        var operators = new Stack<char>();
+        var operators = new Stack<string>();
 
-        int i = 0;
+        var tokens = Tokenize(expression);
 
-        while (i < expression.Length)
+        foreach (var token in tokens)
         {
-            char current = expression[i];
-
-            if (char.IsWhiteSpace(current))
+            if (double.TryParse(token, NumberStyles.Any, CultureInfo.InvariantCulture, out _))
             {
-                i++;
-                continue;
+                output.Add(token);
             }
-
-            // Operando (número)
-            if (char.IsDigit(current))
+            else if (IsOperator(token))
             {
-                string number = "";
-
-                while (i < expression.Length &&
-                       (char.IsDigit(expression[i]) || expression[i] == '.'))
+                while (operators.Count > 0 && IsOperator(operators.Peek()))
                 {
-                    number += expression[i];
-                    i++;
+                    string top = operators.Peek();
+                    bool higher = Precedence[top] > Precedence[token];
+                    bool equalAndLeft = Precedence[top] == Precedence[token] && !RightAssociative.Contains(token);
+
+                    if (higher || equalAndLeft)
+                        output.Add(operators.Pop());
+                    else
+                        break;
                 }
 
-                output.Add(number);
-                continue;
+                operators.Push(token);
             }
-
-            // Operador
-            if (IsOperator(current))
+            else if (token == "(")
             {
-                while (operators.Count > 0 &&
-                       IsOperator(operators.Peek()) &&
-                       Precedence[operators.Peek()] >= Precedence[current])
-                {
-                    output.Add(operators.Pop().ToString());
-                }
-
-                operators.Push(current);
-                i++;
-                continue;
+                operators.Push(token);
             }
-
-            // Paréntesis izquierdo
-            if (current == '(')
+            else if (token == ")")
             {
-                operators.Push(current);
-                i++;
-                continue;
-            }
-
-            // Paréntesis derecho
-            if (current == ')')
-            {
-                while (operators.Count > 0 && operators.Peek() != '(')
-                {
-                    output.Add(operators.Pop().ToString());
-                }
+                while (operators.Count > 0 && operators.Peek() != "(")
+                    output.Add(operators.Pop());
 
                 if (operators.Count == 0)
                     throw new ArgumentException("Paréntesis desbalanceados");
 
-                operators.Pop(); // quitar '('
-                i++;
-                continue;
+                operators.Pop(); // descartar '('
             }
-
-            throw new ArgumentException($"Carácter inválido: {current}");
+            else
+            {
+                throw new ArgumentException($"Token inválido: {token}");
+            }
         }
 
         while (operators.Count > 0)
         {
-            if (operators.Peek() == '(')
+            var op = operators.Pop();
+            if (op == "(")
                 throw new ArgumentException("Paréntesis desbalanceados");
-
-            output.Add(operators.Pop().ToString());
+            output.Add(op);
         }
 
         ValidatePostfix(output);
         return output;
     }
 
-    private bool IsOperator(char c)
+    private List<string> Tokenize(string expr)
     {
-        return c == '+' || c == '-' || c == '*' || c == '/';
+        var tokens = new List<string>();
+        int i = 0;
+
+        while (i < expr.Length)
+        {
+            char c = expr[i];
+
+            if (char.IsWhiteSpace(c)) { i++; continue; }
+
+            // Número (permitir decimal con '.')
+            if (char.IsDigit(c) || c == '.')
+            {
+                int start = i;
+                while (i < expr.Length && (char.IsDigit(expr[i]) || expr[i] == '.')) i++;
+                tokens.Add(expr.Substring(start, i - start));
+                continue;
+            }
+
+            // Palabras clave (and, or, xor, not)
+            if (char.IsLetter(c))
+            {
+                int start = i;
+                while (i < expr.Length && char.IsLetter(expr[i])) i++;
+                string word = expr.Substring(start, i - start).ToLowerInvariant();
+                tokens.Add(word switch
+                {
+                    "and" => "&",
+                    "or"  => "|",
+                    "xor" => "^",
+                    "not" => "~",
+                    _ => throw new ArgumentException($"Token inválido: {word}")
+                });
+                continue;
+            }
+
+            // Operadores multi-caracter (**)
+            if (c == '*' && i + 1 < expr.Length && expr[i + 1] == '*')
+            {
+                tokens.Add("**");
+                i += 2;
+                continue;
+            }
+
+            // Operadores simples y paréntesis
+            if (IsOperator(c.ToString()) || c == '(' || c == ')')
+            {
+                tokens.Add(c.ToString());
+                i++;
+                continue;
+            }
+
+            throw new ArgumentException($"Carácter inválido: {c}");
+        }
+
+        return tokens;
     }
 
-    // Validación de la expresión postfija
+    private bool IsOperator(string token) => Precedence.ContainsKey(token);
+
+    // Validación de la expresión postfija (considera operadores unarios y binarios)
     private void ValidatePostfix(List<string> postfix)
     {
         int stackCount = 0;
 
         foreach (var token in postfix)
         {
-            if (double.TryParse(token, out _))
+            if (double.TryParse(token, NumberStyles.Any, CultureInfo.InvariantCulture, out _))
             {
                 stackCount++;
             }
-            else if (token.Length == 1 && IsOperator(token[0]))
+            else if (IsOperator(token))
             {
-                stackCount -= 2;
-                if (stackCount < 0)
-                    throw new ArgumentException("Expresión postfija inválida");
-
-                stackCount++;
+                if (UnaryOperators.Contains(token))
+                {
+                    if (stackCount < 1) throw new ArgumentException("Expresión postfija inválida");
+                    // neto 0
+                }
+                else
+                {
+                    stackCount -= 2;
+                    if (stackCount < 0) throw new ArgumentException("Expresión postfija inválida");
+                    stackCount += 1;
+                }
+            }
+            else
+            {
+                throw new ArgumentException("Token inválido en expresión postfija");
             }
         }
 
