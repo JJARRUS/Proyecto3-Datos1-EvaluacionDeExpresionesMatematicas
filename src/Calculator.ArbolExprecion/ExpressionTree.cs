@@ -23,19 +23,35 @@ public class ExpressionTree
             // Operador → nodo interno
             else if (IsOperator(token))
             {
-                if (stack.Count < 2)
-                    throw new ArgumentException("Expresión postfija inválida");
-
-                Node right = stack.Pop();
-                Node left = stack.Pop();
-
-                var operatorNode = new OperatorNode(token[0])
+                if (token == "~")
                 {
-                    Left = left,
-                    Right = right
-                };
+                    if (stack.Count < 1)
+                        throw new ArgumentException("Expresión postfija inválida (operador unario)");
 
-                stack.Push(operatorNode);
+                    Node right = stack.Pop();
+                    var operatorNode = new OperatorNode(token)
+                    {
+                        Right = right,
+                        Left = null
+                    };
+                    stack.Push(operatorNode);
+                }
+                else
+                {
+                    if (stack.Count < 2)
+                        throw new ArgumentException("Expresión postfija inválida");
+
+                    Node right = stack.Pop();
+                    Node left = stack.Pop();
+
+                    var operatorNode = new OperatorNode(token)
+                    {
+                        Left = left,
+                        Right = right
+                    };
+
+                    stack.Push(operatorNode);
+                }
             }
             else
             {
@@ -51,8 +67,8 @@ public class ExpressionTree
 
     private bool IsOperator(string token)
     {
-        return token.Length == 1 &&
-               (token[0] == '+' || token[0] == '-' ||
-                token[0] == '*' || token[0] == '/');
+        return token == "+" || token == "-" || token == "*" || token == "/" ||
+               token == "%" || token == "**" || token == "&" || token == "|" ||
+               token == "^" || token == "~";
     }
 }
