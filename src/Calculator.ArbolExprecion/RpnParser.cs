@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 
+namespace Calculator.ArbolExprecion
+{
 public class RpnParser
 {
     // Precedencia y asociatividad
@@ -175,4 +177,28 @@ public class RpnParser
         if (stackCount != 1)
             throw new ArgumentException("Expresión postfija inválida");
     }
+
+    /// Construye y devuelve la raíz del árbol desde una expresión RPN (tokens separados por espacio).
+    public static Node Parse(string rpn)
+    {
+        if (rpn == null) throw new ArgumentNullException(nameof(rpn));
+
+        var tokens = TokenizeRpn(rpn);
+        var tree = new ExpressionTree();
+        tree.BuildFromPostfix(tokens);
+
+        if (tree.Root == null)
+            throw new ArgumentException("Expresión postfija inválida", nameof(rpn));
+
+        return tree.Root;
+    }
+
+    private static List<string> TokenizeRpn(string rpn)
+    {
+        var list = new List<string>();
+        foreach (var tok in rpn.Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            list.Add(tok);
+        return list;
+    }
+}
 }
