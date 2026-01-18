@@ -64,11 +64,23 @@ public sealed class CalculatorServer
 
 
 
-    /// Manejo de la comunicación con un cliente TCP específico.
+ 
+    /// US7-Task 38: Manejo de la comunicación con un cliente TCP específico.
+    /// Crea una sesión identificada para cada conexión.
+
     /// "client" Cliente TCP conectado
     /// "ct" Token de cancelación para cerrar ordenadamente
     private async Task HandleClientAsync(TcpClient client, CancellationToken ct)
     {
+        // US7 Task 38: Crear una sesión identificada para este cliente
+        var remoteEndpoint = client.Client.RemoteEndPoint as IPEndPoint;
+        var localEndpoint = client.Client.LocalEndPoint as IPEndPoint;
+        var session = new ClientSession(remoteEndpoint?.Address, remoteEndpoint?.Port ?? 0, 
+                                        localEndpoint?.Address, localEndpoint?.Port ?? 0);
+
+        // Registrar conexión de cliente
+        Console.WriteLine($"✓ Cliente conectado: {session}");
+
         // using asegura que los recursos se liberen automáticamente al finalizar
         using (client) // Cerrar el TcpClient al finalizar
         {
@@ -78,61 +90,69 @@ public sealed class CalculatorServer
             // Escritor para enviar respuestas
             using var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true };
 
-
-
-        // Bucle de comunicación con el cliente: leer comandos hasta que se solicite cancelación
+            // Bucle de comunicación con el cliente: leer comandos hasta que se solicite cancelación
             while (!ct.IsCancellationRequested)
             {
-            // Leer una línea de texto del cliente de forma asíncrona
-            var line = await reader.ReadLineAsync();
+                // Leer una línea de texto del cliente de forma asíncrona
+                var line = await reader.ReadLineAsync();
 
-
-            // Si ReadLineAsync devuelve null, significa que el cliente cerró la conexión
+                // Si ReadLineAsync devuelve null, significa que el cliente cerró la conexión
                 if (line == null) break;
 
-            // Comando EVAL: evaluar una expresión matemática en notación RPN
-            // Formato: "EVAL <expresión_RPN>" o bien notación postfija (ej: "EVAL 3 4 +")
-                if (line.StartsWith("EVAL ", StringComparison.OrdinalIgnoreCase))
-            {
-                // Extraer la expresión RPN eliminando el prefijo "EVAL "
-                var expr = line.Substring(5).Trim();
-                try
-                {
-                    // Parsear la expresión RPN y construir el árbol de expresión
-                    var root = RpnParser.Parse(expr);
-                    
-                    // Evaluar el árbol de expresión y obtener el resultado numérico
-                    double result = root.Evaluate();
+                // Incrementar contador de comandos para esta sesión
+                session.IncrementCommandCount();
 
-                    // Registrar la evaluación en el archivo CSV (timestamp, expresión, resultado)
-                    CsvLog.Append(_csvPath, DateTime.UtcNow, expr, (int)result);
-                    
-                    // Enviar respuesta exitosa al cliente: "OK <resultado>"
-                    await writer.WriteLineAsync($"OK {result}");
-                }
-                catch (Exception ex)
+                // Comando EVAL: evaluar una expresión matemática en notación RPN
+                // Formato: "EVAL <expresión_RPN>" o bien notación postfija (ej: "EVAL 3 4 +")
+                if (line.StartsWith("EVAL ", StringComparison.OrdinalIgnoreCase))
                 {
-                    // Si hay error (sintaxis inválida, división por cero, etc.), enviar mensaje de error
-                    await writer.WriteLineAsync($"ERR {ex.Message}");
+                    // Extraer la expresión RPN eliminando el prefijo "EVAL "
+                    var expr = line.Substring(5).Trim();
+                    try
+                    {
+                        // Parsear la expresión RPN y construir el árbol de expresión
+                        var root = RpnParser.Parse(expr);
+                        
+                        // Evaluar el árbol de expresión y obtener el resultado numérico
+                        double result = root.Evaluate();
+
+                        // Registrar la evaluación en el archivo CSV (timestamp, expresión, resultado)
+                        CsvLog.Append(_csvPath, DateTime.UtcNow, expr, (int)result);
+                        
+                        // Enviar respuesta exitosa al cliente: "OK <resultado>"
+                        await writer.WriteLineAsync($"OK {result}");
+                        
+                        Console.WriteLine($"[{session.SessionId:N}] EVAL: {expr} = {result}");
+                    }
+                    catch (Exception ex)
+                    {
+                        // Si hay error (sintaxis inválida, división por cero, etc.), enviar mensaje de error
+                        await writer.WriteLineAsync($"ERR {ex.Message}");
+                        Console.WriteLine($"[{session.SessionId:N}] ERROR: {ex.Message}");
+                    }
                 }
-            }
-            // Comando HIST: solicitar el historial completo de evaluaciones
+                // Comando HIST: solicitar el historial completo de evaluaciones
                 else if (line.Equals("HIST", StringComparison.OrdinalIgnoreCase))
                 {
-                // Leer todas las líneas del archivo CSV y enviarlas al cliente
-                foreach (var row in CsvLog.ReadAllLines(_csvPath))
+                    // Leer todas las líneas del archivo CSV y enviarlas al cliente
+                    foreach (var row in CsvLog.ReadAllLines(_csvPath))
                         await writer.WriteLineAsync(row);
 
-                // Enviar marcador de fin de historial
+                    // Enviar marcador de fin de historial
                     await writer.WriteLineAsync("END");
+                    
+                    Console.WriteLine($"[{session.SessionId:N}] HIST: historial enviado");
                 }
-            // Comando no reconocido: enviar error
+                // Comando no reconocido: enviar error
                 else
                 {
                     await writer.WriteLineAsync("ERR Comando no reconocido");
+                    Console.WriteLine($"[{session.SessionId:N}] Comando desconocido: {line}");
                 }
             }
         }
-        // Al salir del bucle, los 'using' liberan automáticamente los recursos (stream, reader, writer, client)
+
+        // Registrar desconexión de cliente
+        Console.WriteLine($"✗ Cliente desconectado: {session.SessionId:N} (Comandos procesados: {session.CommandCount})");
     }
 }
