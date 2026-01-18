@@ -34,11 +34,10 @@ public sealed class CalculatorServer
 
 
 
-    /// <summary>
+ 
     /// US7 Task 37: Implementa un bucle infinito que acepta múltiples clientes de forma concurrente.
     /// Cada cliente se atiende en una tarea separada sin bloquear la aceptación de nuevos clientes.
-    /// </summary>
-    /// <param name="ct">Token de cancelación para detener el servidor ordenadamente</param>
+    /// "ct" Token de cancelación para detener el servidor ordenadamente
     public async Task RunAsync(CancellationToken ct)
     {
         // Crear listener TCP que escucha en todas las interfaces de red (0.0.0.0) en el puerto configurado
@@ -65,11 +64,13 @@ public sealed class CalculatorServer
 
 
  
-    /// US7-Task 38: Manejo de la comunicación con un cliente TCP específico.
+    /// <summary>
+    /// US7 Task 38: Manejo de la comunicación con un cliente TCP específico.
+    /// US7 Task 39: Cada cliente tiene streams aislados (reader/writer propios) garantizando no-interferencia.
     /// Crea una sesión identificada para cada conexión.
-
-    /// "client" Cliente TCP conectado
-    /// "ct" Token de cancelación para cerrar ordenadamente
+    /// </summary>
+    /// <param name="client">Cliente TCP conectado</param>
+    /// <param name="ct">Token de cancelación para cerrar ordenadamente</param>
     private async Task HandleClientAsync(TcpClient client, CancellationToken ct)
     {
         // US7 Task 38: Crear una sesión identificada para este cliente
@@ -79,15 +80,16 @@ public sealed class CalculatorServer
                                         localEndpoint?.Address, localEndpoint?.Port ?? 0);
 
         // Registrar conexión de cliente
-        Console.WriteLine($"✓ Cliente conectado: {session}");
+        Console.WriteLine($"Cliente conectado: {session}");
 
+        // Task 39: Cada cliente tiene su propio TcpClient, NetworkStream, StreamReader y StreamWriter.
         // using asegura que los recursos se liberen automáticamente al finalizar
         using (client) // Cerrar el TcpClient al finalizar
         {
-            using var stream = client.GetStream(); // Obtener el stream de red para leer/escribir datos
-            using var reader = new StreamReader(stream, Encoding.UTF8); // Lector para recibir texto del cliente
+            using var stream = client.GetStream(); // Stream dedicado para este cliente
+            using var reader = new StreamReader(stream, Encoding.UTF8); // Reader aislado
 
-            // Escritor para enviar respuestas
+            // Writer aislado para enviar respuestas solo a este cliente
             using var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true };
 
             // Bucle de comunicación con el cliente: leer comandos hasta que se solicite cancelación
@@ -153,6 +155,6 @@ public sealed class CalculatorServer
         }
 
         // Registrar desconexión de cliente
-        Console.WriteLine($"✗ Cliente desconectado: {session.SessionId:N} (Comandos procesados: {session.CommandCount})");
+        Console.WriteLine($"X Cliente desconectado: {session.SessionId:N} (Comandos procesados: {session.CommandCount})");
     }
 }
