@@ -17,7 +17,7 @@ public static class CsvLog
 	/// Agrega una entrada al archivo CSV. Crea el directorio si no existe.
 	/// Thread-safe: múltiples clientes pueden llamar concurrentemente sin corrupción de datos.
 
-	public static void Append(string path, DateTime utc, string expr, double result)
+	public static void Append(string path, DateTime utc, string expr, double result, Guid sessionId)
 	{
 		// Task 39: lock asegura que solo un cliente escriba al CSV a la vez
 		lock (_fileLock)
@@ -28,7 +28,7 @@ public static class CsvLog
 				if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
 					Directory.CreateDirectory(dir);
 
-				var line = string.Format("{0},{1},{2}", utc.ToString("o"), expr, result);
+				var line = string.Format("{0},{1},{2},{3}", utc.ToString("o"), sessionId, expr, result);
 
 				// Abrir en modo append con UTF-8
 				using var fs = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read);

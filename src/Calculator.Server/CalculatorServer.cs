@@ -64,13 +64,12 @@ public sealed class CalculatorServer
 
 
  
-    /// <summary>
     /// US7 Task 38: Manejo de la comunicación con un cliente TCP específico.
     /// US7 Task 39: Cada cliente tiene streams aislados (reader/writer propios) garantizando no-interferencia.
     /// Crea una sesión identificada para cada conexión.
-    /// </summary>
-    /// <param name="client">Cliente TCP conectado</param>
-    /// <param name="ct">Token de cancelación para cerrar ordenadamente</param>
+
+    /// "client" Cliente TCP conectado
+    /// "ct" Token de cancelación para cerrar ordenadamente
     private async Task HandleClientAsync(TcpClient client, CancellationToken ct)
     {
         // US7 Task 38: Crear una sesión identificada para este cliente
@@ -86,8 +85,8 @@ public sealed class CalculatorServer
         // using asegura que los recursos se liberen automáticamente al finalizar
         using (client) // Cerrar el TcpClient al finalizar
         {
-            using var stream = client.GetStream(); // Stream dedicado para este cliente
-            using var reader = new StreamReader(stream, Encoding.UTF8); // Reader aislado
+            using var stream = client.GetStream(); // Obtener el stream de red para leer/escribir datos
+            using var reader = new StreamReader(stream, Encoding.UTF8); // Lector para recibir texto del cliente
 
             // Writer aislado para enviar respuestas solo a este cliente
             using var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true };
@@ -118,8 +117,8 @@ public sealed class CalculatorServer
                         // Evaluar el árbol de expresión y obtener el resultado numérico
                         double result = root.Evaluate();
 
-                        // Registrar la evaluación en el archivo CSV (timestamp, expresión, resultado)
-                        CsvLog.Append(_csvPath, DateTime.UtcNow, expr, (int)result);
+                        // Registrar la evaluación en el archivo CSV (timestamp, sessionId, expresión, resultado)
+                        CsvLog.Append(_csvPath, DateTime.UtcNow, expr, (int)result, session.SessionId);
                         
                         // Enviar respuesta exitosa al cliente: "OK <resultado>"
                         await writer.WriteLineAsync($"OK {result}");
