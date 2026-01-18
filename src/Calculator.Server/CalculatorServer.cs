@@ -1,9 +1,12 @@
 // Implementación del servidor TCP para recibir y procesar expresiones matemáticas de clientes
+using System;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Calculator.ArbolExprecion;
 
 namespace Calculator.Server;
 
@@ -31,8 +34,11 @@ public sealed class CalculatorServer
 
 
 
-    /// Implementa un bucle infinito que acepta múltiples clientes de forma concurrente.
-    /// "ct" Es el token de cancelación para detener el servidor ordenadamente
+    /// <summary>
+    /// US7 Task 37: Implementa un bucle infinito que acepta múltiples clientes de forma concurrente.
+    /// Cada cliente se atiende en una tarea separada sin bloquear la aceptación de nuevos clientes.
+    /// </summary>
+    /// <param name="ct">Token de cancelación para detener el servidor ordenadamente</param>
     public async Task RunAsync(CancellationToken ct)
     {
         // Crear listener TCP que escucha en todas las interfaces de red (0.0.0.0) en el puerto configurado
@@ -47,13 +53,10 @@ public sealed class CalculatorServer
             // Esperar de forma asíncrona a que un cliente se conecte
             var client = await listener.AcceptTcpClientAsync(ct);
             
-
-            
-            // El"_" descarta la Task para que no se espere su finalización
-
-            // Task.Run ejecuta HandleClientAsync en un thread pool, permitiendo concurrencia
-            // En pocas palabras: 
-            // Cuando un cliente se conecta, el servidor no espera a que ese cliente termine para aceptar el siguiente. 
+            // Task 37: Task.Run ejecuta HandleClientAsync en un thread pool, permitiendo concurrencia
+            // El "_" descarta la Task para que no se espere su finalización (fire-and-forget)
+            // Esto permite que el servidor continúe aceptando nuevos clientes inmediatamente
+            // sin esperar a que el cliente actual termine su comunicación
             _ = Task.Run(() => HandleClientAsync(client, ct), ct);
         }
     }
@@ -68,27 +71,28 @@ public sealed class CalculatorServer
     {
         // using asegura que los recursos se liberen automáticamente al finalizar
         using (client) // Cerrar el TcpClient al finalizar
-        using var stream = client.GetStream(); // Obtener el stream de red para leer/escribir datos
-        using var reader = new StreamReader(stream, Encoding.UTF8); // Lector para recibir texto del cliente
-        
-        // Escritor para enviar respuestas
-        using var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true };
+        {
+            using var stream = client.GetStream(); // Obtener el stream de red para leer/escribir datos
+            using var reader = new StreamReader(stream, Encoding.UTF8); // Lector para recibir texto del cliente
+
+            // Escritor para enviar respuestas
+            using var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true };
 
 
 
         // Bucle de comunicación con el cliente: leer comandos hasta que se solicite cancelación
-        while (!ct.IsCancellationRequested)
-        {
+            while (!ct.IsCancellationRequested)
+            {
             // Leer una línea de texto del cliente de forma asíncrona
             var line = await reader.ReadLineAsync();
 
 
             // Si ReadLineAsync devuelve null, significa que el cliente cerró la conexión
-            if (line == null) break;
+                if (line == null) break;
 
             // Comando EVAL: evaluar una expresión matemática en notación RPN
             // Formato: "EVAL <expresión_RPN>" o bien notación postfija (ej: "EVAL 3 4 +")
-            if (line.StartsWith("EVAL ", StringComparison.OrdinalIgnoreCase))
+                if (line.StartsWith("EVAL ", StringComparison.OrdinalIgnoreCase))
             {
                 // Extraer la expresión RPN eliminando el prefijo "EVAL "
                 var expr = line.Substring(5).Trim();
@@ -98,10 +102,10 @@ public sealed class CalculatorServer
                     var root = RpnParser.Parse(expr);
                     
                     // Evaluar el árbol de expresión y obtener el resultado numérico
-                    int result = root.Evaluate();
+                    double result = root.Evaluate();
 
                     // Registrar la evaluación en el archivo CSV (timestamp, expresión, resultado)
-                    CsvLog.Append(_csvPath, DateTime.UtcNow, expr, result);
+                    CsvLog.Append(_csvPath, DateTime.UtcNow, expr, (int)result);
                     
                     // Enviar respuesta exitosa al cliente: "OK <resultado>"
                     await writer.WriteLineAsync($"OK {result}");
@@ -113,19 +117,20 @@ public sealed class CalculatorServer
                 }
             }
             // Comando HIST: solicitar el historial completo de evaluaciones
-            else if (line.Equals("HIST", StringComparison.OrdinalIgnoreCase))
-            {
+                else if (line.Equals("HIST", StringComparison.OrdinalIgnoreCase))
+                {
                 // Leer todas las líneas del archivo CSV y enviarlas al cliente
                 foreach (var row in CsvLog.ReadAllLines(_csvPath))
-                    await writer.WriteLineAsync(row);
+                        await writer.WriteLineAsync(row);
 
                 // Enviar marcador de fin de historial
-                await writer.WriteLineAsync("END");
-            }
+                    await writer.WriteLineAsync("END");
+                }
             // Comando no reconocido: enviar error
-            else
-            {
-                await writer.WriteLineAsync("ERR Comando no reconocido");
+                else
+                {
+                    await writer.WriteLineAsync("ERR Comando no reconocido");
+                }
             }
         }
         // Al salir del bucle, los 'using' liberan automáticamente los recursos (stream, reader, writer, client)
