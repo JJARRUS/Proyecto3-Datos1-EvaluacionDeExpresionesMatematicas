@@ -23,7 +23,8 @@ public sealed class TcpApiClient
 	}
 
 	/// Task 31: Recibe y procesa la respuesta del servidor.
-	/// Envía "EVAL <expresión>" y espera respuesta "OK <resultado>" o "ERR <mensaje>".
+	/// US8 Task 41: Envía expresión al servidor usando formato definido "EVAL <expresión_RPN>".
+	/// Espera respuesta "OK <resultado>" o "ERR <mensaje>".
 
 	/// "rpn" Expresión en notación postfija, ej: "3 4 +
 	/// Resultado numérico de la evaluación
@@ -36,6 +37,7 @@ public sealed class TcpApiClient
 		using var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true };
 		using var reader = new StreamReader(stream, Encoding.UTF8);
 
+		// US8 Task 41: Envío del mensaje con formato definido: "EVAL"
 		await writer.WriteLineAsync($"EVAL {rpn}");
 		
 		// Task 31: Recibir respuesta del servidor desde el stream

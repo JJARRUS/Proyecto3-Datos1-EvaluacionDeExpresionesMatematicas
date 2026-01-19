@@ -86,7 +86,10 @@ public sealed class CalculatorServer
         using (client) // Cerrar el TcpClient al finalizar
         {
             using var stream = client.GetStream(); // Obtener el stream de red para leer/escribir datos
-            using var reader = new StreamReader(stream, Encoding.UTF8); // Lector para recibir texto del cliente
+            
+            // US8 Task 42: Configurar StreamReader con UTF-8 para recepción correcta de mensajes del cliente
+            // Lee líneas delimitadas por \n o \r\n según protocolo definido
+            using var reader = new StreamReader(stream, Encoding.UTF8);
 
             // Writer aislado para enviar respuestas solo a este cliente
             using var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true };
@@ -94,17 +97,23 @@ public sealed class CalculatorServer
             // Bucle de comunicación con el cliente: leer comandos hasta que se solicite cancelación
             while (!ct.IsCancellationRequested)
             {
-                // Leer una línea de texto del cliente de forma asíncrona
+                // US8 Task 42: Leer una línea completa del cliente (espera hasta recibir \n o \r\n)
+                // ReadLineAsync bloquea hasta que llega el delimitador, implementando el framing del protocolo
                 var line = await reader.ReadLineAsync();
 
-                // Si ReadLineAsync devuelve null, significa que el cliente cerró la conexión
+                // US8 Task 42: Si ReadLineAsync devuelve null, el cliente cerró la conexión limpiamente
                 if (line == null) break;
+
+                // US8 Task 42: Ignorar líneas vacías (solo espacios o tabuladores)
+                line = line.Trim();
+                if (string.IsNullOrEmpty(line)) continue;
 
                 // Incrementar contador de comandos para esta sesión
                 session.IncrementCommandCount();
 
-                // Comando EVAL: evaluar una expresión matemática en notación RPN
-                // Formato: "EVAL <expresión_RPN>" o bien notación postfija (ej: "EVAL 3 4 +")
+                // US8 Task 41: Comando EVAL - recibe expresión desde cliente
+                // Formato del mensaje: "EVAL" (tokens separados por espacios)
+                // Ejemplo: "EVAL 3 4 +" -> evalúa expresión en notación postfija
                 if (line.StartsWith("EVAL ", StringComparison.OrdinalIgnoreCase))
                 {
                     // Extraer la expresión RPN eliminando el prefijo "EVAL "
