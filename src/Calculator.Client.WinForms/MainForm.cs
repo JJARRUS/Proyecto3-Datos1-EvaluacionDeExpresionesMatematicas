@@ -162,14 +162,35 @@ public partial class MainForm : Form
             Padding = new Padding(5)
         };
 
+        var panelHistoryTop = new Panel
+        {
+            Dock = DockStyle.Top,
+            Height = 35,
+            Padding = new Padding(0, 0, 0, 6)
+        };
+
         var labelHistory = new Label
         {
             Text = "Historial de evaluaciones:",
-            Dock = DockStyle.Top,
             AutoSize = true,
             Font = new System.Drawing.Font("Segoe UI", 10, System.Drawing.FontStyle.Bold),
-            Padding = new Padding(0, 0, 0, 6)
+            Location = new System.Drawing.Point(0, 5)
         };
+
+        var buttonLoadHistory = new Button
+        {
+            Text = "Cargar Historial",
+            AutoSize = true,
+            Font = new System.Drawing.Font("Segoe UI", 9),
+            BackColor = System.Drawing.Color.LightGray,
+            FlatStyle = FlatStyle.Flat,
+            Location = new System.Drawing.Point(250, 5),
+            Cursor = Cursors.Hand
+        };
+        buttonLoadHistory.FlatAppearance.BorderSize = 1;
+
+        panelHistoryTop.Controls.Add(labelHistory);
+        panelHistoryTop.Controls.Add(buttonLoadHistory);
 
         dataGridHistory = new DataGridView
         {
@@ -187,7 +208,7 @@ public partial class MainForm : Form
         dataGridHistory.Columns.Add("Fecha", "Fecha/Hora");
 
         panelHistory.Controls.Add(dataGridHistory);
-        panelHistory.Controls.Add(labelHistory);
+        panelHistory.Controls.Add(panelHistoryTop);
 
         // ==================== STATUS BAR ====================
         var panelStatus = new Panel
@@ -219,6 +240,7 @@ public partial class MainForm : Form
 
         // ==================== 3. CONECTAR EVENTOS ====================
         buttonCalculate.Click += async (sender, e) => await ButtonCalculate_ClickAsync();
+        buttonLoadHistory.Click += async (sender, e) => await ButtonLoadHistory_ClickAsync();
 
         // Permitir presionar Enter en el textbox
         textBoxExpression.KeyPress += (sender, e) =>
@@ -325,6 +347,51 @@ public partial class MainForm : Form
         {
             labelStatus.Text = $"Servidor: {SERVER_IP}:{SERVER_PORT} (listo)";
             labelStatus.ForeColor = System.Drawing.Color.FromArgb(34, 85, 34);
+        }
+    }
+
+    // US14: Cargar historial desde el servidor
+    private async Task ButtonLoadHistory_ClickAsync()
+    {
+        try
+        {
+            labelStatus.Text = "Cargando historial del servidor...";
+            labelStatus.ForeColor = System.Drawing.Color.DarkGoldenrod;
+
+            // Solicitar historial al servidor (US14 Task 1)
+            var historyLines = await _client.HistAsync();
+
+            // US14 Task 4: Manejar caso sin operaciones registradas
+            if (historyLines.Count == 0)
+            {
+                dataGridHistory.Rows.Clear();
+                ShowError("No hay historial registrado en el servidor");
+                labelStatus.Text = "Historial vacío";
+                labelStatus.ForeColor = System.Drawing.Color.DarkGoldenrod;
+                return;
+            }
+
+            // US14 Task 3: Procesar datos CSV y mostrar en grid
+            dataGridHistory.Rows.Clear();
+            foreach (var line in historyLines)
+            {
+                var parts = line.Split(',');
+                if (parts.Length >= 3)
+                {
+                    // CSV format: timestamp, expresión, resultado
+                    dataGridHistory.Rows.Add(parts[1], parts[2], parts[0]);
+                }
+            }
+
+            labelStatus.Text = $"Historial cargado: {historyLines.Count} operaciones";
+            labelStatus.ForeColor = System.Drawing.Color.FromArgb(34, 85, 34);
+            ClearError();
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error al cargar historial: {ex.Message}");
+            labelStatus.Text = "Error cargando historial";
+            labelStatus.ForeColor = System.Drawing.Color.Firebrick;
         }
     }
 }
