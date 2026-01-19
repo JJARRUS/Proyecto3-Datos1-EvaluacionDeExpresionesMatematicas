@@ -28,7 +28,7 @@ public static class CsvLog
 				if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
 					Directory.CreateDirectory(dir);
 
-				var line = string.Format("{0},{1},{2},{3}", utc.ToString("o"), sessionId, expr, result);
+				var line = string.Format("{0};{1};{2};{3}", utc.ToString("o"), sessionId, expr, result);
 
 				// Abrir en modo append con UTF-8
 				using var fs = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read);
