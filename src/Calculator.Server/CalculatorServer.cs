@@ -94,7 +94,9 @@ public sealed class CalculatorServer
             // Writer aislado para enviar respuestas solo a este cliente
             using var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true };
 
-            // Bucle de comunicación con el cliente: leer comandos hasta que se solicite cancelación
+            // US8 Task 44: Bucle de comunicación persistente - mantiene la conexión activa
+            // El servidor no cierra la conexión después de responder; espera más comandos del mismo cliente
+            // Esto permite que un cliente envíe múltiples EVAL/HIST sin reconectar
             while (!ct.IsCancellationRequested)
             {
                 // US8 Task 42: Leer una línea completa del cliente (espera hasta recibir \n o \r\n)
@@ -120,23 +122,29 @@ public sealed class CalculatorServer
                     var expr = line.Substring(5).Trim();
                     try
                     {
-                        // Parsear la expresión RPN y construir el árbol de expresión
+                        // US8 Task 43: Integrar módulo de evaluación RpnParser para parsear expresión
+                        // RpnParser.Parse() convierte la cadena RPN en un árbol de expresión (Node)
                         var root = RpnParser.Parse(expr);
                         
-                        // Evaluar el árbol de expresión y obtener el resultado numérico
+                        // US8 Task 43: Evaluar el árbol de expresión con root.Evaluate()
+                        // Procesa la expresión y retorna el resultado numérico final
                         double result = root.Evaluate();
 
                         // Registrar la evaluación en el archivo CSV (timestamp, sessionId, expresión, resultado)
                         CsvLog.Append(_csvPath, DateTime.UtcNow, expr, (int)result, session.SessionId);
                         
-                        // Enviar respuesta exitosa al cliente: "OK <resultado>"
+                        // US8 Task 44: Enviar respuesta exitosa al cliente manteniendo la conexión activa
+                        // WriteLineAsync envía "OK <resultado>" + \n, el cliente recibe la respuesta
+                        // La conexión permanece abierta para que el cliente pueda enviar más comandos
                         await writer.WriteLineAsync($"OK {result}");
                         
                         Console.WriteLine($"[{session.SessionId:N}] EVAL: {expr} = {result}");
                     }
                     catch (Exception ex)
                     {
-                        // Si hay error (sintaxis inválida, división por cero, etc.), enviar mensaje de error
+                        // US8 Task 43: Manejo de errores del módulo de evaluación
+                        // Captura excepciones de RpnParser (sintaxis inválida) o Evaluate() (división por cero, etc.)
+                        // US8 Task 44: Enviar mensaje de error al cliente manteniendo la conexión activa
                         await writer.WriteLineAsync($"ERR {ex.Message}");
                         Console.WriteLine($"[{session.SessionId:N}] ERROR: {ex.Message}");
                     }
