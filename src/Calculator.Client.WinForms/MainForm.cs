@@ -1,6 +1,9 @@
 using System;
 using System.Windows.Forms;
 using System.Threading.Tasks;
+using System.Linq;
+using System.Collections.Generic;
+using Calculator.ArbolExprecion;
 
 namespace Calculator.Client.WinForms;
 
@@ -272,11 +275,18 @@ public partial class MainForm : Form
         {
             textBoxResult.Text = "Procesando...";
             textBoxResult.ForeColor = System.Drawing.Color.DarkGoldenrod;
-            labelStatus.Text = "Enviando al servidor...";
+            labelStatus.Text = "Convirtiendo a postfija...";
             labelStatus.ForeColor = System.Drawing.Color.DarkGoldenrod;
 
+            // Convertir expresión infija a postfija
+            var parser = new RpnParser();
+            var postfixTokens = parser.ConvertToPostfix(expression);
+            var postfixExpression = string.Join(" ", postfixTokens);
+
+            labelStatus.Text = "Enviando al servidor...";
+
             // Enviar expresión RPN al servidor
-            var response = await _client.EvaluateRawAsync(expression);
+            var response = await _client.EvaluateRawAsync(postfixExpression);
 
             // Task 31: Recibir y procesar la respuesta del servidor
             if (response.StartsWith("OK ", StringComparison.OrdinalIgnoreCase))
@@ -288,7 +298,7 @@ public partial class MainForm : Form
                 labelStatus.Text = "Respuesta OK";
                 labelStatus.ForeColor = System.Drawing.Color.FromArgb(34, 85, 34);
 
-                dataGridHistory.Rows.Insert(0, expression, payload, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                dataGridHistory.Rows.Insert(0, postfixExpression, payload, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
             }
             else if (response.StartsWith("ERR ", StringComparison.OrdinalIgnoreCase))
             {
@@ -313,10 +323,10 @@ public partial class MainForm : Form
         catch (Exception ex)
         {
             // Task 31: Manejar errores de conexión o recepción
-            ShowError($"Error de conexión: {ex.Message}");
+            ShowError($"Error: {ex.Message}");
             textBoxResult.Text = "Error";
             textBoxResult.ForeColor = System.Drawing.Color.Red;
-            labelStatus.Text = "No se pudo conectar al servidor";
+            labelStatus.Text = "Error al procesar";
             labelStatus.ForeColor = System.Drawing.Color.Firebrick;
         }
         finally
@@ -364,35 +374,59 @@ public partial class MainForm : Form
             // US14 Task 4: Manejar caso sin operaciones registradas
             if (historyLines.Count == 0)
             {
-                dataGridHistory.Rows.Clear();
                 ShowError("No hay historial registrado en el servidor");
                 labelStatus.Text = "Historial vacío";
                 labelStatus.ForeColor = System.Drawing.Color.DarkGoldenrod;
+                MessageBox.Show("El servidor no devolvió ninguna línea de historial.", "Sin Historial", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
-            // US14 Task 3: Procesar datos CSV y mostrar en grid
+            // LIMPIAR TODA LA GRID
             dataGridHistory.Rows.Clear();
+
+            // US14 Task 3: Procesar datos CSV y mostrar en grid
+            int rowsAdded = 0;
+            
             foreach (var line in historyLines)
             {
-                var parts = line.Split(',');
-                if (parts.Length >= 3)
+                if (string.IsNullOrWhiteSpace(line))
+                    continue;
+
+                // Formato del servidor CSV: timestamp;UUID;expresión_postfija;resultado
+                var parts = line.Split(';');
+                if (parts.Length >= 4)
                 {
-                    // CSV format: timestamp, expresión, resultado
-                    dataGridHistory.Rows.Add(parts[1], parts[2], parts[0]);
+                    string timestamp = parts[0];
+                    string uuid = parts[1];
+                    string exprPostfix = parts[2];
+                    string resultado = parts[3];
+                    
+                    // Formatear timestamp ISO a formato legible
+                    if (DateTime.TryParse(timestamp, out DateTime dt))
+                        timestamp = dt.ToString("yyyy-MM-dd HH:mm:ss");
+                    
+                    // Mostrar: expresión_postfija, resultado, timestamp
+                    // Insertar al inicio para que más reciente quede arriba
+                    dataGridHistory.Rows.Insert(0, exprPostfix, resultado, timestamp);
+                    rowsAdded++;
                 }
             }
 
-            labelStatus.Text = $"Historial cargado: {historyLines.Count} operaciones";
+            labelStatus.Text = $"Historial cargado: {rowsAdded} operaciones";
             labelStatus.ForeColor = System.Drawing.Color.FromArgb(34, 85, 34);
             ClearError();
+            
+            if (rowsAdded == 0)
+                MessageBox.Show($"Se recibieron {historyLines.Count} líneas pero no se pudieron parsear correctamente.", "Error de Formato", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
         catch (Exception ex)
         {
             ShowError($"Error al cargar historial: {ex.Message}");
             labelStatus.Text = "Error cargando historial";
             labelStatus.ForeColor = System.Drawing.Color.Firebrick;
+            MessageBox.Show($"Error: {ex.Message}\n\nStackTrace: {ex.StackTrace}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 }
+
 

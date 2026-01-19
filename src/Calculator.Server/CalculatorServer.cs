@@ -122,29 +122,23 @@ public sealed class CalculatorServer
                     var expr = line.Substring(5).Trim();
                     try
                     {
-                        // US8 Task 43: Integrar módulo de evaluación RpnParser para parsear expresión
-                        // RpnParser.Parse() convierte la cadena RPN en un árbol de expresión (Node)
+                        // US8 Task 43: Integrar módulo de evaluación RpnParser
                         var root = RpnParser.Parse(expr);
                         
-                        // US8 Task 43: Evaluar el árbol de expresión con root.Evaluate()
-                        // Procesa la expresión y retorna el resultado numérico final
+                        // US8 Task 43: Evaluar el árbol de expresión
                         double result = root.Evaluate();
 
-                        // Registrar la evaluación en el archivo CSV (timestamp, sessionId, expresión, resultado)
+                        // Registrar la evaluación en el archivo CSV
                         CsvLog.Append(_csvPath, DateTime.UtcNow, expr, (int)result, session.SessionId);
                         
-                        // US8 Task 44: Enviar respuesta exitosa al cliente manteniendo la conexión activa
-                        // WriteLineAsync envía "OK <resultado>" + \n, el cliente recibe la respuesta
-                        // La conexión permanece abierta para que el cliente pueda enviar más comandos
+                        // US8 Task 44: Enviar respuesta exitosa
                         await writer.WriteLineAsync($"OK {result}");
                         
                         Console.WriteLine($"[{session.SessionId:N}] EVAL: {expr} = {result}");
                     }
                     catch (Exception ex)
                     {
-                        // US8 Task 43: Manejo de errores del módulo de evaluación
-                        // Captura excepciones de RpnParser (sintaxis inválida) o Evaluate() (división por cero, etc.)
-                        // US8 Task 44: Enviar mensaje de error al cliente manteniendo la conexión activa
+                        // US8 Task 43: Manejo de errores
                         await writer.WriteLineAsync($"ERR {ex.Message}");
                         Console.WriteLine($"[{session.SessionId:N}] ERROR: {ex.Message}");
                     }
