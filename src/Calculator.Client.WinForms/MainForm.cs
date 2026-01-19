@@ -377,7 +377,6 @@ public partial class MainForm : Form
                 ShowError("No hay historial registrado en el servidor");
                 labelStatus.Text = "Historial vacío";
                 labelStatus.ForeColor = System.Drawing.Color.DarkGoldenrod;
-                MessageBox.Show("El servidor no devolvió ninguna línea de historial.", "Sin Historial", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
@@ -415,16 +414,12 @@ public partial class MainForm : Form
             labelStatus.Text = $"Historial cargado: {rowsAdded} operaciones";
             labelStatus.ForeColor = System.Drawing.Color.FromArgb(34, 85, 34);
             ClearError();
-            
-            if (rowsAdded == 0)
-                MessageBox.Show($"Se recibieron {historyLines.Count} líneas pero no se pudieron parsear correctamente.", "Error de Formato", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
         catch (Exception ex)
         {
             ShowError($"Error al cargar historial: {ex.Message}");
             labelStatus.Text = "Error cargando historial";
             labelStatus.ForeColor = System.Drawing.Color.Firebrick;
-            MessageBox.Show($"Error: {ex.Message}\n\nStackTrace: {ex.StackTrace}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 }
